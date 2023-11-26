@@ -1,30 +1,25 @@
-// Підключення необхідних модулів і бібліотек
-const express = require('express');  // Підключення бібліотеки Express
-const multer = require('multer');     // Підключення бібліотеки Multer для завантаження файлів
-const fs = require('fs');             // Підключення бібліотеки fs для роботи з файловою системою
-const path = require('path');         // Підключення бібліотеки path для роботи зі шляхами файлів
 
-// Створення і налаштування екземпляра сервера Express
-const app = express();                // Створення сервера Express
-const port = 8000;                    // Визначення номеру порту, на якому запускатиметься сервер
+const express = require('express');  
+const fs = require('fs');  
+const multer = require('multer'); 
+const path = require('path');
 
-app.use(express.json());               // Використання JSON-парсера для обробки запитів з JSON-даними
 
-// Визначення шляху до файлу, де зберігаються нотатки
-const notesFile = path.join(__dirname, 'notes.json');
+const app = express();  
 
-// Роут для отримання списку нотаток
-app.get('/notes', (req, res) => {
-  try {
-    const data = fs.readFileSync(notesFile, 'utf8');  // Читання даних з файлу
-    const notes = JSON.parse(data);                  // Розшифровка JSON-даних
-    res.json(notes);                                  // Надсилання списку нотаток як відповіді
-  } catch (err) {
-    res.json([]);                                    // Якщо сталася помилка, повертаємо пустий список
-  }
+const port = 8000;  
+
+
+app.use(express.json());  
+
+// Обробка GET-запиту для кореневого шляху
+app.get('/', (req, res) => {
+  res.send('Server is running');  
 });
 
-// Роут для відправки статичної HTML-сторінки для завантаження нотаток
+const notesFile = path.join(__dirname, 'notes.json');
+
+// Обробка GET-запиту для сторінки UploadForm.html
 app.get('/UploadForm.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'static', 'UploadForm.html'));  // Відправка статичного HTML-файлу
 });
@@ -37,80 +32,120 @@ const storage = multer.diskStorage({
   }
 });
 
+// Створення екземпляра multer для обробки файлових завантажень
 const upload = multer({ storage: storage });      // Налаштування завантаження файлів
 
-// Роут для завантаження нової нотатки
-app.post('/upload', upload.single('note_name'), (req, res) => {
-  const note_name = req.body.note_name;            // Отримання назви нотатки з запиту
-  const note = req.body.note;                      // Отримання тексту нотатки з запиту
+// Обробка GET-запиту для отримання списку нотаток
+app.get('/notes', (req, res) => {
+  try {
+    // Перевірка наявності файлу перед його зчитуванням
+    if (!fs.existsSync(notesFile)) {
+      fs.writeFileSync(notesFile, '[]', 'utf8');  // Створення файлу з порожнім масивом, якщо він не існує
+    }
+
+    const notes = JSON.parse(fs.readFileSync(notesFile, 'utf8'));  // Зчитування та парсинг файлу нотаток
+    res.json(notes);  // Відправлення відповіді у форматі JSON зі списком нотаток
+  } catch (error) {
+    console.error('Помилка отримання списку нотаток:', error);  // Логування помилки у консоль
+    res.status(500).json([]);  // Відправлення статусу помилки та порожнього списку нотаток
+  }
+});
+
+// Обробка GET-запиту для отримання конкретної нотатки за ім'ям
+app.get('/notes/:note_name', (req, res) => {
+  const note_name = req.params.note_name;  // Отримання параметра note_name з URL
+// Перевірка наявності файлу перед його зчитуванням
+if (!fs.existsSync(notesFile)) {
+  fs.writeFileSync(notesFile, '[]', 'utf8');  // Створення файлу з порожнім масивом, якщо він не існує
+}
+  if (note_name.trim() === '') {
+    alert('Введіть назву нотатки.');  // Попередження, якщо ім'я нотатки порожнє
+  }
 
   try {
+    const data = fs.readFileSync(notesFile, 'utf8');  // Читання даних з файлу
+    const notes = JSON.parse(data);  // Розшифровка JSON-даних
+
+    const note = notes.find((note) => note.name === note_name);  // Пошук нотатки за іменем
+
+    if (note) {
+      res.send(note.text);  // Вивід тільки тексту нотатки
+    } else {
+      res.status(404).send('Нотатку не знайдено.');  // Відповідь з кодом статусу 404, якщо нотатка не знайдена
+    }
+  } catch (err) {
+    res.status(404).send('Не можливо прочитати файл.');  // Обробка помилки, якщо не вдається прочитати файл
+  }
+});
+
+// Обробка POST-запиту для завантаження нової нотатки
+app.post('/upload', upload.none(), (req, res) => {
+  // Перевірка наявності файлу перед його зчитуванням
+  if (!fs.existsSync(notesFile)) {
+    fs.writeFileSync(notesFile, '[]', 'utf8');  // Створення файлу з порожнім масивом, якщо він не існує
+  }
+  const note_name = req.body.note_name;  // Отримання параметра note_name з тіла запиту
+  const note = req.body.note;  // Отримання параметра note з тіла запиту
+
+  try {
+    // Перевірка наявності файлу перед його зчитуванням
+    if (!fs.existsSync(notesFile)) {
+      fs.writeFileSync(notesFile, '[]', 'utf8');  // Створення файлу з порожнім масивом, якщо він не існує
+    }
+
     const data = fs.readFileSync(notesFile, 'utf8');  // Читання даних з файлу
     const notes = JSON.parse(data);                  // Розшифровка JSON-даних
 
     const existingNote = notes.find((note) => note.name === note_name);  // Пошук наявної нотатки
 
     if (existingNote) {
-      res.status(400).send('Note with the same name already exists.');  // Якщо нотатка вже існує, повертаємо помилку
+      res.status(400).send('Нотатка з тим самим ім\'ям вже існує.');  // Якщо нотатка вже існує, повертаємо помилку
     } else {
-      notes.push({ name: note_name, text: note });  // Додавання нової нотатки до списку
+      const newNote = { name: note_name, text: note };  // Створення нової нотатки
+      notes.push(newNote);  // Додавання нової нотатки до списку
       fs.writeFileSync(notesFile, JSON.stringify(notes, null, 2));  // Збереження оновленого списку в файлі
-      res.status(201).send('Note uploaded successfully.');  // Повідомлення про успішне завантаження нотатки
+      res.status(201).send('Нотатку створено');  // Повертаємо новостворену нотатку у тілі відповіді
     }
   } catch (err) {
-    const notes = [{ name: note_name, text: note }];  // Створення нового списку, якщо файл не існує
-    fs.writeFileSync(notesFile, JSON.stringify(notes, null, 2));  // Збереження списку в файлі
-    res.status(201).send('Note uploaded successfully.');  // Повідомлення про успішне завантаження нотатки
+    // Обробка помилок, якщо вони виникають при читанні файлу або парсингу JSON
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
 });
 
-// Роут для отримання інформації про конкретну нотатку за ім'ям
-app.get('/notes/:note_name', (req, res) => {
-  const note_name = req.params.note_name;          // Отримання імені нотатки з URL
+// Обробка PUT-запиту для оновлення тексту нотатки
+app.put('/notes/:note_name', express.text(), (req, res) => {
+  // Перевірка наявності файлу перед його зчитуванням
+  if (!fs.existsSync(notesFile)) {
+    fs.writeFileSync(notesFile, '[]', 'utf8');  // Створення файлу з порожнім масивом, якщо він не існує
+  }
+  const note_name = req.params.note_name;  // Отримання параметра note_name з URL
+  const new_text = req.body;  // Отримання нового тексту нотатки з тіла запиту
 
-  try {
-    const data = fs.readFileSync(notesFile, 'utf8');  // Читання даних з файлу
-    const notes = JSON.parse(data);                  // Розшифровка JSON-даних
+  if (note_name.trim() === '') {
+    return res.status(400).send('Введіть назву нотатки.');  // Відправлення статусу 400, якщо ім'я нотатки порожнє
+  }
 
-    const note = notes.find((note) => note.name === note_name);  // Пошук нотатки за іменем
+  const data = fs.readFileSync(notesFile, 'utf8');  // Читання даних з файлу
+  const notes = JSON.parse(data);  // Розшифровка JSON-даних
+  const note_UpdateI = notes.find((note) => note.name === note_name);  // Пошук нотатки за ім'ям
 
-    if (note) {
-      res.json(note);                                // Надсилання інформації про нотатку як відповіді
-    } else {
-      res.status(404).send('Note not found.');       // Якщо нотатка не знайдено, повертаємо помилку 404
-    }
-  } catch (err) {
-    res.status(404).send('Note not found.');         // Обробка помилки, якщо не вдається прочитати файл
+  if (note_UpdateI) {
+    note_UpdateI.text = new_text;  // Оновлення тексту нотатки
+    fs.writeFileSync(notesFile, JSON.stringify(notes), 'utf8');  // Запис оновленого масиву нотаток у файл
+    res.status(200).send('Текст вказаної нотатки успішно оновлено');  // Відправлення статусу успіху
+  } else {
+    res.status(404).send('Не знайдено нотатку');  // Відправлення статусу 404, якщо нотатка не знайдена
   }
 });
 
-// Роут для оновлення тексту нотатки за ім'ям
-app.put('/notes/:note_name', (req, res) => {
-  const note_name = req.params.note_name;            // Отримання імені нотатки з URL
-  const new_text = req.params.new_text;              // Отримання нового тексту нотатки з URL
-
-  try {
-    const data = fs.readFileSync(notesFile, 'utf8');  // Читання даних з файлу
-    const notes = JSON.parse(data);                  // Розшифровка JSON-даних
-
-    const noteIndex = notes.findIndex((note) => note.name === note_name);  // Пошук індексу нотатки за іменем
-
-    if (noteIndex !== -1) {
-      notes[noteIndex].text = new_text;  // Оновлення тексту нотатки
-      fs.writeFileSync(notesFile, JSON.stringify(notes, null, 2));  // Збереження оновленого списку в файлі
-      res.send('Note updated successfully.');  // Повідомлення про успішне оновлення нотатки
-    } else {
-      res.status(404).send('Note not found.');  // Якщо нотатка не знайдена, повертаємо помилку 404
-    }
-  } catch (err) {
-    res.status(404).send('Note not found.');  // Обробка помилки, якщо не вдається прочитати файл
-  }
-});
-
-// Роут для видалення нотатки за ім'ям
+// Обробка DELETE-запиту для видалення нотатки за ім'ям
 app.delete('/notes/:note_name', (req, res) => {
-  const note_name = req.params.note_name;          // Отримання імені нотатки з URL
-
+  // Перевірка наявності файлу перед його зчитуванням
+  if (!fs.existsSync(notesFile)) {
+    fs.writeFileSync(notesFile, '[]', 'utf8');  // Створення файлу з порожнім масивом, якщо він не існує
+  }
+  const note_name = req.params.note_name;  // Отримання параметра note_name з URL
   try {
     const data = fs.readFileSync(notesFile, 'utf8');  // Читання даних з файлу
     const notes = JSON.parse(data);                  // Розшифровка JSON-даних
@@ -120,16 +155,16 @@ app.delete('/notes/:note_name', (req, res) => {
     if (noteIndex !== -1) {
       notes.splice(noteIndex, 1);  // Видалення нотатки зі списку
       fs.writeFileSync(notesFile, JSON.stringify(notes, null, 2));  // Збереження оновленого списку в файлі
-      res.send('Note deleted successfully.');  // Повідомлення про успішне видалення нотатки
+      res.send('Нотатку успішно видалено.');  // Повідомлення про успішне видалення нотатки
     } else {
-      res.status(404).send('Note not found.');  // Якщо нотатка не знайдена, повертаємо помилку 404
+      res.status(404).send('Нотатку не знайдено.');  // Якщо нотатка не знайдена, повертаємо помилку 404
     }
   } catch (err) {
-    res.status(404).send('Note not found.');  // Обробка помилки, якщо не вдається прочитати файл
+    res.status(404).send('Не вдалося прочитати файл.');  // Обробка помилки, якщо не вдається прочитати файл
   }
 });
 
-// Запуск сервера на заданому порту
+// Запуск сервера на вказаному порту
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);  // Повідомлення про запуск сервера
+  console.log(`Server is running on port ${port}`);  // Виведення повідомлення про запуск сервера у консоль
 });
