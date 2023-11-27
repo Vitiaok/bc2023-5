@@ -13,10 +13,6 @@ const port = 8000;
 app.use(express.json());  
 app.use(bodyParser.raw({ type: 'text/plain' }));
 
-// Обробка GET-запиту для кореневого шляху
-app.get('/', (req, res) => {
-  res.send('Server is running');  
-});
 
 const notesFile = path.join(__dirname, 'notes.json');
 
@@ -141,46 +137,7 @@ app.put("/notes/:note_name", (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
-/*
-app.put("/notes/:note_name", (req, res) => {
-  const note_name = req.params.note_name;
-  const noteIndex = notesFile.findIndex(note => note.note_name === note_name);
 
-  if (noteIndex !== -1) {
-    notesFile[noteIndex].note = req.body.toString();
-    console.log('Поточний стан notes:', req.body.toString());
-    res.sendStatus(200);
-  } else {
-    res.sendStatus(404);
-  }
-});
-/*
-// Обробка PUT-запиту для оновлення тексту нотатки
-app.put('/notes/:note_name', express.text(), (req, res) => {
-  // Перевірка наявності файлу перед його зчитуванням
-  if (!fs.existsSync(notesFile)) {
-    fs.writeFileSync(notesFile, '[]', 'utf8');  // Створення файлу з порожнім масивом, якщо він не існує
-  }
-  const note_name = req.params.note_name;  // Отримання параметра note_name з URL
-  const new_text = req.body;  // Отримання нового тексту нотатки з тіла запиту
-
-  if (note_name.trim() === '') {
-    return res.status(400).send('Введіть назву нотатки.');  // Відправлення статусу 400, якщо ім'я нотатки порожнє
-  }
-
-  const data = fs.readFileSync(notesFile, 'utf8');  // Читання даних з файлу
-  const notes = JSON.parse(data);  // Розшифровка JSON-даних
-  const note_UpdateI = notes.find((note) => note.name === note_name);  // Пошук нотатки за ім'ям
-
-  if (note_UpdateI) {
-    note_UpdateI.text = new_text;  // Оновлення тексту нотатки
-    fs.writeFileSync(notesFile, JSON.stringify(notes), 'utf8');  // Запис оновленого масиву нотаток у файл
-    res.status(200).send('Текст вказаної нотатки успішно оновлено');  // Відправлення статусу успіху
-  } else {
-    res.status(404).send('Не знайдено нотатку');  // Відправлення статусу 404, якщо нотатка не знайдена
-  }
-});
-*/
 
 
 // Обробка DELETE-запиту для видалення нотатки за ім'ям
