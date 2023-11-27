@@ -3,7 +3,7 @@ const express = require('express');
 const fs = require('fs');  
 const multer = require('multer'); 
 const path = require('path');
-
+const bodyParser = require("body-parser");
 
 const app = express();  
 
@@ -11,6 +11,7 @@ const port = 8000;
 
 
 app.use(express.json());  
+app.use(bodyParser.raw({ type: 'text/plain' }));
 
 // Обробка GET-запиту для кореневого шляху
 app.get('/', (req, res) => {
@@ -113,6 +114,47 @@ app.post('/upload', upload.none(), (req, res) => {
   }
 });
 
+app.put("/notes/:note_name", (req, res) => {
+  const note_name = req.params.note_name;
+
+  try {
+    // Check if the notes file exists before reading it
+    if (!fs.existsSync(notesFile)) {
+      fs.writeFileSync(notesFile, '[]', 'utf8');  // Create a file with an empty array if it doesn't exist
+    }
+
+    const data = fs.readFileSync(notesFile, 'utf8');  // Read data from the file
+    const notes = JSON.parse(data);  // Parse JSON data
+
+    const noteIndex = notes.findIndex(note => note.name === note_name);
+
+    if (noteIndex !== -1) {
+      notes[noteIndex].text = req.body.toString();
+      fs.writeFileSync(notesFile, JSON.stringify(notes, null, 2));  // Save the updated list to the file
+      console.log('Current state of notes:', notes);
+      res.sendStatus(200);
+    } else {
+      res.sendStatus(404);  // Note not found
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+/*
+app.put("/notes/:note_name", (req, res) => {
+  const note_name = req.params.note_name;
+  const noteIndex = notesFile.findIndex(note => note.note_name === note_name);
+
+  if (noteIndex !== -1) {
+    notesFile[noteIndex].note = req.body.toString();
+    console.log('Поточний стан notes:', req.body.toString());
+    res.sendStatus(200);
+  } else {
+    res.sendStatus(404);
+  }
+});
+/*
 // Обробка PUT-запиту для оновлення тексту нотатки
 app.put('/notes/:note_name', express.text(), (req, res) => {
   // Перевірка наявності файлу перед його зчитуванням
@@ -138,6 +180,8 @@ app.put('/notes/:note_name', express.text(), (req, res) => {
     res.status(404).send('Не знайдено нотатку');  // Відправлення статусу 404, якщо нотатка не знайдена
   }
 });
+*/
+
 
 // Обробка DELETE-запиту для видалення нотатки за ім'ям
 app.delete('/notes/:note_name', (req, res) => {
